@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}{% if article %}Edit Article{% else %}Create New Article{% endif %} - Django Blog{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-header {
+    background-color: #f8f9fa;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+  }
+  
+  #editor-container {
+    height: 300px;
+    margin-bottom: 1rem;
+  }
+  
+  .ql-toolbar {
+    border-top-left-radius: 0.25rem;
+    border-top-right-radius: 0.25rem;
+  }
+  
+  .ql-container {
+    border-bottom-left-radius: 0.25rem;
+    border-bottom-right-radius: 0.25rem;
+    height: 250px;
+  }
+  
+  .tag-select {
+    display: block;
+    width: 100%;
+  }
+</style>
+<!-- Include Quill CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<!-- Include Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<!-- Form Header -->
+<div class="form-header text-center">
+  <h1>{% if article %}Edit Article{% else %}Create New Article{% endif %}</h1>
+  <p class="lead">Share your knowledge with the world</p>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="card">
+      <div class="card-body">
+        {% if errors %}
+        <div class="alert alert-danger">
+          <h5><i class="fas fa-exclamation-triangle"></i> Please correct the following errors:</h5>
+          <ul>
+            {% for field, field_errors in errors.items %}
+              {% for error in field_errors %}
+                <li><strong>{{ field }}</strong>: {{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          
+          <!-- Title -->
+          <div class="mb-4">
+            <label for="title" class="form-label">Title</label>
+            <input type="text" class="form-control form-control-lg" id="title" name="title" required 
+                  value="{{ article.title|default:'' }}" placeholder="Enter an engaging title">
+          </div>
+          
+          <!-- Category -->
+          <div class="mb-4">
+            <label for="category" class="form-label">Category</label>
+            <select class="form-select" id="category" name="category" required>
+              <option value="">Select a category</option>
+              {% for category in categories %}
+              <option value="{{ category.id }}" {% if article.category.id == category.id %}selected{% endif %}>
+                {{ category.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <!-- Content -->
+          <div class="mb-4">
+            <label for="content" class="form-label">Content</label>
+            <div id="editor-container"></div>
+            <textarea name="content" id="content" style="display:none">{{ article.content|default:'' }}</textarea>
+            <small class="text-muted">Use the rich text editor above to craft your article</small>
+          </div>
+          
+          <!-- Tags -->
+          <div class="mb-4">
+            <label for="tags" class="form-label">Tags</label>
+            <select class="tag-select form-select" id="tags" name="tag_ids" multiple>
+              {% for tag in tags %}
+              <option value="{{ tag.id }}" 
+                {% if article and tag in article.tags.all %}selected{% endif %}>
+                {{ tag.name }}
+              </option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">Select relevant tags or type to create new ones</small>
+          </div>
+          
+          <!-- Featured Image -->
+          <div class="mb-4">
+            <label for="featured_image" class="form-label">Featured Image</label>
+            <input type="file" class="form-control" id="featured_image" name="featured_image">
+            {% if article.featured_image %}
+            <div class="mt-2">
+              <p>Current image: {{ article.featured_image.name }}</p>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="remove_image" name="remove_image">
+                <label class="form-check-label" for="remove_image">Remove current image</label>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          
+          <!-- Publish Options -->
+          <div class="card mb-4">
+            <div class="card-header">
+              <h5 class="mb-0">Publishing Options</h5>
+            </div>
+            <div class="card-body">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="is_published" name="is_published" 
+                      {% if article.is_published|default:True %}checked{% endif %}>
+                <label class="form-check-label" for="is_published">
+                  Publish immediately
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="allow_comments" name="allow_comments"
+                      {% if article.allow_comments|default:True %}checked{% endif %}>
+                <label class="form-check-label" for="allow_comments">
+                  Allow comments
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Buttons -->
+          <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{% if article %}{% url 'article-detail' article.slug %}{% else %}{% url 'article-list' %}{% endif %}" 
+              class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save"></i> {% if article %}Update{% else %}Publish{% endif %} Article
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include Quill JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<!-- Include Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+  // Initialize Quill editor
+  var quill = new Quill('#editor-container', {
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'color': [] }, { 'background': [] }],
+        ['link', 'image', 'code-block'],
+        ['clean']
+      ]
+    },
+    placeholder: 'Write your article here...',
+    theme: 'snow'
+  });
+  
+  // Set initial content if editing
+  var contentInput = document.getElementById('content');
+  if (contentInput.value) {
+    quill.root.innerHTML = contentInput.value;
+  }
+  
+  // Update hidden form field before submit
+  var form = document.querySelector('form');
+  form.onsubmit = function() {
+    contentInput.value = quill.root.innerHTML;
+    return true;
+  };
+  
+  // Initialize Select2 for tags
+  $(document).ready(function() {
+    $('.tag-select').select2({
+      tags: true,
+      tokenSeparators: [',', ' '],
+      placeholder: "Select tags or create new ones"
+    });
+  });
+</script>
+{% endblock %}

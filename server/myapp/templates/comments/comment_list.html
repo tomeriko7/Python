@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ title }}</h1>
+    
+    <div class="d-flex justify-content-between mb-4">
+        <div>
+            <a href="{% url 'comment-list' %}" class="btn btn-outline-primary {% if not pending %}active{% endif %}">כל התגובות</a>
+            <a href="{% url 'comment-pending' %}" class="btn btn-outline-warning {% if pending %}active{% endif %}">תגובות ממתינות</a>
+        </div>
+    </div>
+    
+    {% if comments %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">תוכן</th>
+                    <th scope="col">מאמר</th>
+                    <th scope="col">משתמש</th>
+                    <th scope="col">תאריך</th>
+                    <th scope="col">סטטוס</th>
+                    <th scope="col">פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comment in comments %}
+                <tr>
+                    <td>{{ comment.id }}</td>
+                    <td>
+                        {% if comment.parent %}
+                        <span class="badge badge-info">תגובה לתגובה #{{ comment.parent.id }}</span><br>
+                        {% endif %}
+                        {{ comment.content }}
+                    </td>
+                    <td><a href="{% url 'article-detail' comment.article.slug %}">{{ comment.article.title }}</a></td>
+                    <td>{{ comment.user.username }}</td>
+                    <td>{{ comment.created_at|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        {% if comment.is_approved %}
+                        <span class="badge badge-success">מאושר</span>
+                        {% else %}
+                        <span class="badge badge-warning">ממתין לאישור</span>
+                        {% endif %}
+                    </td>
+                    <td class="d-flex">
+                        {% if not comment.is_approved %}
+                        <button class="btn btn-sm btn-success mr-1 approve-comment" data-id="{{ comment.id }}">
+                            <i class="fas fa-check"></i> אשר
+                        </button>
+                        {% else %}
+                        <button class="btn btn-sm btn-warning mr-1 reject-comment" data-id="{{ comment.id }}">
+                            <i class="fas fa-times"></i> דחה
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-danger delete-comment" data-id="{{ comment.id }}">
+                            <i class="fas fa-trash"></i> מחק
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">אין תגובות {% if pending %}הממתינות לאישור{% endif %} כרגע.</div>
+    {% endif %}
+</div>
+
+<!-- Delete Comment Modal -->
+<div class="modal fade" id="deleteCommentModal" tabindex="-1" role="dialog" aria-labelledby="deleteCommentModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteCommentModalLabel">מחיקת תגובה</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                האם אתה בטוח שברצונך למחוק את התגובה הזו?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">ביטול</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">מחק</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        let commentIdToDelete = null;
+        
+        // Approve comment
+        $('.approve-comment').click(function() {
+            const commentId = $(this).data('id');
+            $.ajax({
+                url: `/api/comments/${commentId}/approve/`,
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function() {
+                    window.location.reload();
+                },
+                error: function(xhr) {
+                    alert('שגיאה באישור התגובה. אנא נסה שוב מאוחר יותר.');
+                    console.error(xhr.responseText);
+                }
+            });
+        });
+        
+        // Reject comment
+        $('.reject-comment').click(function() {
+            const commentId = $(this).data('id');
+            $.ajax({
+                url: `/api/comments/${commentId}/reject/`,
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function() {
+                    window.location.reload();
+                },
+                error: function(xhr) {
+                    alert('שגיאה בדחיית התגובה. אנא נסה שוב מאוחר יותר.');
+                    console.error(xhr.responseText);
+                }
+            });
+        });
+        
+        // Delete comment - Show modal
+        $('.delete-comment').click(function() {
+            commentIdToDelete = $(this).data('id');
+            $('#deleteCommentModal').modal('show');
+        });
+        
+        // Confirm delete comment
+        $('#confirmDelete').click(function() {
+            if (!commentIdToDelete) return;
+            
+            $.ajax({
+                url: `/api/comments/${commentIdToDelete}/`,
+                type: 'DELETE',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function() {
+                    $('#deleteCommentModal').modal('hide');
+                    window.location.reload();
+                },
+                error: function(xhr) {
+                    $('#deleteCommentModal').modal('hide');
+                    alert('שגיאה במחיקת התגובה. אנא נסה שוב מאוחר יותר.');
+                    console.error(xhr.responseText);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

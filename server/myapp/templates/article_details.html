@@ -1,0 +1,509 @@
+{% extends "base.html" %} {% block title %}{{ article.title }} - Django Blog{%
+endblock %} {% block extra_css %}
+<style>
+  .article-header {
+    background-color: #f8f9fa;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+  }
+
+  .article-meta {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+  }
+
+  .article-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+  }
+
+  .article-tags .badge {
+    margin-right: 5px;
+    font-size: 0.85rem;
+  }
+
+  .article-actions {
+    margin: 2rem 0;
+    padding: 1rem 0;
+    border-top: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .comment-section {
+    margin-top: 3rem;
+  }
+
+  .comment {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+  }
+
+  .comment-meta {
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+
+  .related-articles .card {
+    height: 100%;
+    transition: transform 0.3s ease;
+  }
+
+  .related-articles .card:hover {
+    transform: translateY(-5px);
+  }
+</style>
+{% endblock %} {% block content %}
+<article>
+  <!-- Article Header -->
+  <div class="article-header text-center">
+    <div class="container">
+      <h1 class="display-4">{{ article.title }}</h1>
+      <div class="article-meta">
+        <span><i class="fas fa-user"></i> {{ article.author.username }}</span> •
+        <span
+          ><i class="fas fa-calendar"></i> {{ article.created_at|date:"F j, Y"
+          }}</span
+        >
+        •
+        <span><i class="fas fa-folder"></i> {{ article.category.name }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <!-- Article Content -->
+      <div class="article-content">{{ article.content|linebreaks }}</div>
+
+      <!-- Tags -->
+      {% if article.tags.all %}
+      <div class="article-tags mt-4">
+        <h5><i class="fas fa-tags"></i> Tags</h5>
+        {% for tag in article.tags.all %}
+        <a
+          href="{% url 'article-list' %}?tag={{ tag.slug }}"
+          class="badge bg-secondary text-decoration-none"
+        >
+          {{ tag.name }}
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Article Actions -->
+      <div class="article-actions">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center">
+              <span class="me-3">Share:</span>
+              <a href="#" class="btn btn-sm btn-outline-primary me-2"
+                ><i class="fab fa-facebook-f"></i
+              ></a>
+              <a href="#" class="btn btn-sm btn-outline-info me-2"
+                ><i class="fab fa-twitter"></i
+              ></a>
+              <a href="#" class="btn btn-sm btn-outline-secondary"
+                ><i class="fab fa-linkedin-in"></i
+              ></a>
+            </div>
+          </div>
+          <div class="col-md-6 text-md-end mt-3 mt-md-0">
+            {% if can_edit %}
+            <a
+              href="{% url 'article-update' article.slug %}"
+              class="btn btn-outline-primary me-2"
+            >
+              <i class="fas fa-edit"></i> Edit
+            </a>
+            <a
+              href="{% url 'article-delete' article.slug %}"
+              class="btn btn-outline-danger"
+            >
+              <i class="fas fa-trash"></i> Delete
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Author Info -->
+      <div class="card mb-5">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-auto">
+              <img
+                src="https://via.placeholder.com/80"
+                class="rounded-circle"
+                alt="Author profile"
+              />
+            </div>
+            <div class="col">
+              <h5>About {{ article.author.username }}</h5>
+              <p>
+                Author bio would go here. This is placeholder text since we
+                don't have actual bio data in this template.
+              </p>
+              <a href="#" class="btn btn-sm btn-outline-primary"
+                >View Profile</a
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment Section -->
+      <div class="comment-section">
+        <h3 class="mb-4">
+          <i class="far fa-comments"></i> Comments ({{ comments|length }})
+        </h3>
+
+        {% if user.is_authenticated %}
+        <!-- Comment Form -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h5 class="card-title">Leave a Comment</h5>
+            <form
+              method="post"
+              action="{% url 'article-detail' article.slug %}"
+            >
+              {% csrf_token %}
+              <div class="mb-3">
+                <textarea
+                  class="form-control"
+                  name="content"
+                  rows="3"
+                  placeholder="Your comment"
+                  required
+                ></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">
+                Post Comment
+              </button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle"></i> Please
+          <a href="{% url 'login' %}">login</a> to leave a comment.
+        </div>
+        {% endif %}
+
+        <!-- Comments List -->
+        {% if comments %}
+        <div class="comments-list">
+          {% for comment in comments %}
+          <div class="comment" id="comment-{{ comment.id }}">
+            <div class="d-flex">
+              <div class="flex-shrink-0">
+                <img
+                  src="https://via.placeholder.com/50"
+                  class="rounded-circle"
+                  alt="Commenter profile"
+                />
+              </div>
+              <div class="flex-grow-1 ms-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-1">{{ comment.user.username }}</h5>
+                  <div class="comment-actions">
+                    {% if not comment.is_approved %}
+                    <span class="badge bg-warning text-dark"
+                      >Pending Approval</span
+                    >
+                    <button
+                      class="btn btn-sm btn-success approve-comment ms-2"
+                      data-id="{{ comment.id }}"
+                    >
+                      <i class="fas fa-check"></i> Approve
+                    </button>
+                    {% else %}
+                    <span class="badge bg-success">Approved</span>
+                    <button
+                      class="btn btn-sm btn-warning reject-comment ms-2"
+                      data-id="{{ comment.id }}"
+                    >
+                      <i class="fas fa-times"></i> Reject
+                    </button>
+                    {% endif %}
+                    <button
+                      class="btn btn-sm btn-danger delete-comment ms-2"
+                      data-id="{{ comment.id }}"
+                    >
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+                <p class="comment-meta">
+                  {{ comment.created_at|date:"F j, Y, g:i a" }}
+                </p>
+                <p>{{ comment.content }}</p>
+
+                <!-- Reply Form -->
+                <button
+                  class="btn btn-sm btn-outline-primary reply-toggle mb-2"
+                  data-comment-id="{{ comment.id }}"
+                >
+                  <i class="fas fa-reply"></i> Reply
+                </button>
+
+                <div
+                  class="reply-form collapse"
+                  id="reply-form-{{ comment.id }}"
+                >
+                  <div class="card card-body bg-light mb-3">
+                    <form
+                      method="post"
+                      action="{% url 'article-detail' article.slug %}"
+                      class="comment-reply-form"
+                    >
+                      {% csrf_token %}
+                      <input
+                        type="hidden"
+                        name="parent"
+                        value="{{ comment.id }}"
+                      />
+                      <div class="mb-3">
+                        <textarea
+                          class="form-control"
+                          name="content"
+                          rows="2"
+                          placeholder="Your reply"
+                          required
+                        ></textarea>
+                      </div>
+                      <button type="submit" class="btn btn-sm btn-primary">
+                        Post Reply
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary cancel-reply ms-2"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Replies -->
+                {% if comment.replies.all %}
+                <div class="replies ms-4 mt-3">
+                  {% for reply in comment.replies.all %}
+                  <div class="comment reply" id="comment-{{ reply.id }}">
+                    <div class="d-flex">
+                      <div class="flex-shrink-0">
+                        <img
+                          src="https://via.placeholder.com/40"
+                          class="rounded-circle"
+                          alt="Replier profile"
+                        />
+                      </div>
+                      <div class="flex-grow-1 ms-3">
+                        <div
+                          class="d-flex justify-content-between align-items-center"
+                        >
+                          <h6 class="mb-1">{{ reply.user.username }}</h6>
+                          <div class="comment-actions">
+                            {% if not reply.is_approved %}
+                            <span class="badge bg-warning text-dark"
+                              >Pending</span
+                            >
+                            <button
+                              class="btn btn-sm btn-success approve-comment ms-2"
+                              data-id="{{ reply.id }}"
+                            >
+                              <i class="fas fa-check"></i>
+                            </button>
+                            {% else %}
+                            <button
+                              class="btn btn-sm btn-warning reject-comment ms-2"
+                              data-id="{{ reply.id }}"
+                            >
+                              <i class="fas fa-times"></i>
+                            </button>
+                            {% endif %}
+                            <button
+                              class="btn btn-sm btn-danger delete-comment ms-2"
+                              data-id="{{ reply.id }}"
+                            >
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          </div>
+                        </div>
+                        <p class="comment-meta small">
+                          {{ reply.created_at|date:"F j, Y, g:i a" }}
+                        </p>
+                        <p>{{ reply.content }}</p>
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-secondary">
+          <i class="far fa-comment-dots"></i> No comments yet. Be the first to
+          share your thoughts!
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <!-- Related Articles -->
+      {% if related_articles %}
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">
+            <i class="fas fa-newspaper"></i> Related Articles
+          </h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="list-group list-group-flush related-articles">
+            {% for related in related_articles %}
+            <a
+              href="{% url 'article-detail' related.slug %}"
+              class="list-group-item list-group-item-action"
+            >
+              <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">{{ related.title }}</h6>
+              </div>
+              <small class="text-muted">
+                <i class="fas fa-calendar"></i> {{ related.created_at|date:"M d,
+                Y" }}
+              </small>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Categories -->
+      <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+          <h5 class="mb-0"><i class="fas fa-folder"></i> Categories</h5>
+        </div>
+        <div class="card-body">
+          <div class="list-group">
+            {% for category in categories %}
+            <a
+              href="{% url 'article-list' %}?category={{ category.slug }}"
+              class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+            >
+              {{ category.name }}
+              <span class="badge bg-primary rounded-pill"
+                >{{ category.article_count }}</span
+              >
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Popular Tags -->
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0"><i class="fas fa-tags"></i> Popular Tags</h5>
+        </div>
+        <div class="card-body">
+          {% for tag in popular_tags %}
+          <a
+            href="{% url 'article-list' %}?tag={{ tag.slug }}"
+            class="badge bg-secondary text-decoration-none me-2 mb-2 p-2"
+          >
+            {{ tag.name }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+{% endblock %} {% block extra_js %}
+<script>
+  $(document).ready(function () {
+    // Initialize variables
+    let commentIdToDelete = null;
+
+    // Toggle reply form
+    $(".reply-toggle").on("click", function () {
+      const commentId = $(this).data("comment-id");
+      $("#reply-form-" + commentId).collapse("toggle");
+    });
+
+    // Cancel reply
+    $(".cancel-reply").on("click", function () {
+      $(this).closest(".reply-form").collapse("hide");
+    });
+
+    // Approve comment
+    $(".approve-comment").click(function () {
+      const commentId = $(this).data("id");
+      $.ajax({
+        url: `/api/comments/${commentId}/approve/`,
+        type: "POST",
+        headers: {
+          "X-CSRFToken": "{{ csrf_token }}",
+        },
+        success: function () {
+          window.location.reload();
+        },
+        error: function (xhr) {
+          alert("Error approving comment. Please try again later.");
+          console.error(xhr.responseText);
+        },
+      });
+    });
+
+    // Reject comment
+    $(".reject-comment").click(function () {
+      const commentId = $(this).data("id");
+      $.ajax({
+        url: `/api/comments/${commentId}/reject/`,
+        type: "POST",
+        headers: {
+          "X-CSRFToken": "{{ csrf_token }}",
+        },
+        success: function () {
+          window.location.reload();
+        },
+        error: function (xhr) {
+          alert("Error rejecting comment. Please try again later.");
+          console.error(xhr.responseText);
+        },
+      });
+    });
+
+    // Delete comment - confirmation
+    $(".delete-comment").click(function () {
+      if (confirm("Are you sure you want to delete this comment?")) {
+        const commentId = $(this).data("id");
+        $.ajax({
+          url: `/api/comments/${commentId}/`,
+          type: "DELETE",
+          headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+          },
+          success: function () {
+            $(`#comment-${commentId}`).fadeOut("slow", function () {
+              $(this).remove();
+            });
+          },
+          error: function (xhr) {
+            alert("Error deleting comment. Please try again later.");
+            console.error(xhr.responseText);
+          },
+        });
+      }
+    });
+  });
+</script>
+{% endblock %}

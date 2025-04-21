@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Tags - Django Blog{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="mb-4">All Tags</h1>
+  
+  <div class="row">
+    {% for tag in tags %}
+    <div class="col-md-3 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">{{ tag.name }}</h5>
+          {% if tag.description %}
+          <p class="card-text">{{ tag.description|truncatewords:15 }}</p>
+          {% endif %}
+          <p class="card-text text-muted">{{ tag.article_count }} article{{ tag.article_count|pluralize }}</p>
+          <a href="{% url 'tag-detail' tag.slug %}" class="btn btn-outline-primary">View Articles</a>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+      <div class="alert alert-info">
+        No tags available yet.
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

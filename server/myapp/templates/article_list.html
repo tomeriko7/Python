@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Articles - Django Blog{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-header {
+    background-color: #f8f9fa;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+  }
+  
+  .filter-card {
+    position: sticky;
+    top: 20px;
+  }
+  
+  .article-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+  }
+  
+  .article-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+  
+  .category-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+  
+  .article-meta {
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+  
+  .tag-cloud .badge {
+    margin-right: 5px;
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header text-center">
+  <h1>All Articles</h1>
+  <p class="lead">Explore our collection of articles on various topics</p>
+</div>
+
+<div class="row">
+  <!-- Filter Sidebar -->
+  <div class="col-lg-3 mb-4">
+    <div class="card filter-card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-filter"></i> Filters</h5>
+      </div>
+      <div class="card-body">
+        <form action="{% url 'article-list' %}" method="get">
+          <div class="mb-3">
+            <label for="search" class="form-label">Search</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="search" name="search" value="{{ search_query|default:'' }}">
+              <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="category" class="form-label">Category</label>
+            <select class="form-select" id="category" name="category" onchange="this.form.submit()">
+              <option value="">All Categories</option>
+              {% for cat in categories %}
+              <option value="{{ cat.slug }}" {% if current_category == cat.slug %}selected{% endif %}>
+                {{ cat.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </form>
+        
+        <hr>
+        
+        <h6>Popular Tags</h6>
+        <div class="tag-cloud">
+          {% for tag in popular_tags %}
+          <a href="{% url 'article-list' %}?tag={{ tag.slug }}" class="badge bg-secondary text-decoration-none">
+            {{ tag.name }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Article List -->
+  <div class="col-lg-9">
+    <!-- Filter indicators -->
+    {% if search_query or current_category or current_tag %}
+    <div class="mb-3">
+      <h5>Filters applied:</h5>
+      {% if current_category %}
+      <span class="badge bg-primary me-2">
+        Category: {{ current_category }}
+        <a href="{% url 'article-list' %}{% if search_query %}?search={{ search_query }}{% endif %}" class="text-white text-decoration-none">
+          <i class="fas fa-times-circle"></i>
+        </a>
+      </span>
+      {% endif %}
+      
+      {% if current_tag %}
+      <span class="badge bg-secondary me-2">
+        Tag: {{ current_tag }}
+        <a href="{% url 'article-list' %}{% if search_query %}?search={{ search_query }}{% endif %}" class="text-white text-decoration-none">
+          <i class="fas fa-times-circle"></i>
+        </a>
+      </span>
+      {% endif %}
+      
+      {% if search_query %}
+      <span class="badge bg-info me-2">
+        Search: "{{ search_query }}"
+        <a href="{% url 'article-list' %}{% if current_category %}?category={{ current_category }}{% endif %}" class="text-white text-decoration-none">
+          <i class="fas fa-times-circle"></i>
+        </a>
+      </span>
+      {% endif %}
+      
+      <a href="{% url 'article-list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-undo"></i> Clear All
+      </a>
+    </div>
+    {% endif %}
+    
+    {% if not articles %}
+    <div class="alert alert-info">
+      <i class="fas fa-info-circle"></i> No articles found matching your criteria.
+    </div>
+    {% endif %}
+    
+    <div class="row row-cols-1 row-cols-md-2 g-4">
+      {% for article in articles %}
+      <div class="col">
+        <div class="card article-card h-100">
+          {% if article.category %}
+          <span class="badge bg-primary category-badge">{{ article.category.name }}</span>
+          {% endif %}
+          <div class="card-body">
+            <h5 class="card-title">{{ article.title }}</h5>
+            <p class="article-meta">
+              <i class="fas fa-user"></i> {{ article.author.username }} | 
+              <i class="fas fa-calendar"></i> {{ article.created_at|date:"M d, Y" }}
+            </p>
+            <p class="card-text">{{ article.content|truncatewords:25 }}</p>
+          </div>
+          <div class="card-footer bg-white border-top-0">
+            <a href="{% url 'article-detail' article.slug %}" class="btn btn-outline-primary">Read More</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %} {% block title %}{{ tag.name }} - Django Blog{%
+endblock %} {% block content %}
+<div class="container">
+  <div class="jumbotron bg-light p-4 mb-4">
+    <h1 class="display-4">{{ tag.name }}</h1>
+    {% if tag.description %}
+    <p class="lead">{{ tag.description }}</p>
+    {% endif %}
+    <p>{{ articles.count }} article{{ articles.count|pluralize }}</p>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8">
+      <h2 class="mb-4">Articles with this tag</h2>
+
+      {% for article in articles %}
+      <div class="card mb-4">
+        <div class="card-body">
+          <h3 class="card-title">{{ article.title }}</h3>
+          <p class="card-text text-muted">
+            By {{ article.author.username }} | {{ article.created_at|date:"F j,
+            Y" }}
+          </p>
+          <p class="card-text">{{ article.content|truncatewords:30 }}</p>
+          <a
+            href="{% url 'article-detail' article.slug %}"
+            class="btn btn-primary"
+            >Read More</a
+          >
+        </div>
+      </div>
+      {% empty %}
+      <div class="alert alert-info">No articles with this tag yet.</div>
+      {% endfor %}
+    </div>
+
+    <div class="col-md-4">
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5>Popular Tags</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex flex-wrap">
+            {% for tag in popular_tags %}
+            <a
+              href="{% url 'tag-detail' tag.slug %}"
+              class="badge bg-secondary m-1 p-2 text-decoration-none"
+            >
+              {{ tag.name }} ({{ tag.article_count }})
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
