@@ -9,7 +9,8 @@ const ArticleDetail = () => {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const API_URL = "http://localhost:8000/api";
+  // Use environment variable for API URL
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5173/api";
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 

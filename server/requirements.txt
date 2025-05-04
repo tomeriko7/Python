@@ -1,0 +1,27 @@
+# Django and core components
+Django==5.1.6
+djangorestframework==3.15.0
+django-cors-headers==4.3.1
+
+# Database adapter
+psycopg2-binary==2.9.9
+
+# Authentication
+djangorestframework-simplejwt==5.3.1
+PyJWT==2.8.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Image processing (for user profile pictures)
+Pillow==10.2.0
+
+# API documentation (optional)
+drf-yasg==1.21.7
+
+# Production dependencies (optional)
+gunicorn==21.2.0
+whitenoise==6.6.0
+
+# Development tools (optional)
+django-debug-toolbar==4.2.0

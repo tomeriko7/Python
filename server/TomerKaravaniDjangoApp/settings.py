@@ -12,8 +12,26 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
-from pathlib import Path
+import sys
 from datetime import timedelta
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Function to validate required environment variables
+def validate_env_vars(required_vars):
+    missing_vars = [var for var in required_vars if os.environ.get(var) is None]
+    if missing_vars:
+        print(f"Error: Missing required environment variables: {', '.join(missing_vars)}")
+        print("Please check your .env file")
+        # In production, you might want to exit, but for development let's just warn
+        # sys.exit(1)
+
+# Validate required environment variables
+# Uncomment this when you want strict validation
+# validate_env_vars(['SECRET_KEY', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'])
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,12 +40,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-jv5a$u*ri3v+b&0nlg2@17mqnjnzkpm_!rm9t4x$qh^-m#p1eh'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-jv5a$u*ri3v+b&0nlg2@17mqnjnzkpm_!rm9t4x$qh^-m#p1eh')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -47,8 +65,8 @@ REST_FRAMEWORK = {
 
 # JWT settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('JWT_ACCESS_TOKEN_LIFETIME', 1))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('JWT_REFRESH_TOKEN_LIFETIME', 7))),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
@@ -87,12 +105,11 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'TomerKaravaniDjangoApp.urls'
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True').lower() == 'true'
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# Get CORS_ALLOWED_ORIGINS from the environment variable
+cors_origins_str = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000')
+CORS_ALLOWED_ORIGINS = cors_origins_str.split(',')
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -118,11 +135,11 @@ WSGI_APPLICATION = 'TomerKaravaniDjangoApp.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'my.db',
-        'USER': 'postgres',
-        'PASSWORD':'123456',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'my.db'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', '123456'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
@@ -161,7 +178,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = os.environ.get('STATIC_URL', 'static/')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Media files (User uploads)
+MEDIA_URL = os.environ.get('MEDIA_URL', '/media/')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

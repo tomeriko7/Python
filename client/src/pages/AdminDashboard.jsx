@@ -31,8 +31,8 @@ const AdminDashboard = () => {
   });
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // API URL
-  const API_URL = "http://localhost:8000/api";
+  // API URL from environment variables
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5173/api";
 
   // Get auth context
   const { user, isAuthenticated } = useAuth();
