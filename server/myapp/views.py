@@ -59,7 +59,11 @@ class RegisterView(generics.CreateAPIView):
         print("Request data:", request.data)
         
         # Check if this is a form submission or API request
-        if request.content_type == 'application/json':
+        # More robust method to detect API requests
+        is_api_request = request.content_type and 'json' in request.content_type.lower() or \
+                         request.accepted_renderer.format == 'json'
+        
+        if is_api_request:
             # Handle JSON API request
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
@@ -69,12 +73,12 @@ class RegisterView(generics.CreateAPIView):
                 # Return both user data and token
                 response_data = {
                     'user': serializer.data,
-                    'token': str(refresh.access_token)
+                    'token': str(refresh.access_token),
+                    'refresh': str(refresh)
                 }
                 return Response(response_data, status=status.HTTP_201_CREATED)
             else:
                 print("Validation errors:", serializer.errors)
-                # מחזיר את השגיאות בפורמט JSON - לשימוש המפתח
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             # Handle regular form submission
@@ -133,7 +137,10 @@ class LoginView(APIView):
             if not serializer.is_valid():
                 print("Validation errors:", serializer.errors)
                 # For API requests, return detailed validation errors
-                if request.content_type and 'json' in request.content_type.lower():
+                is_api_request = request.content_type and 'json' in request.content_type.lower() or \
+                                 request.accepted_renderer.format == 'json'
+                
+                if is_api_request:
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
                 
                 # For form submissions, show the login form with error
@@ -146,19 +153,23 @@ class LoginView(APIView):
             # Generate token for the user
             refresh = RefreshToken.for_user(user)
             
-            # Check if this is a form submission or API request
-            # More robust content type checking - look for 'json' anywhere in content type
-            is_api_request = request.content_type and 'json' in request.content_type.lower()
+            # Check if this is an API request
+            is_api_request = request.content_type and 'json' in request.content_type.lower() or \
+                           request.accepted_renderer.format == 'json'
             
-            if is_api_request or request.accepted_renderer.format == 'json':
+            if is_api_request:
                 # Return user data and token for API requests
                 response_data = {
                     'user': {
                         'id': user.id,
                         'username': user.username,
-                        'email': user.email
+                        'email': user.email,
+                        'profile': {
+                            'user_type': user.userprofile.user_type if hasattr(user, 'userprofile') else 'regular'
+                        }
                     },
-                    'token': str(refresh.access_token)
+                    'token': str(refresh.access_token),
+                    'refresh': str(refresh)
                 }
                 return Response(response_data, status=status.HTTP_200_OK)
             else:
@@ -169,8 +180,12 @@ class LoginView(APIView):
             error_message = str(e)
             print(f"Login error: {error_message}")
             
+            # Check if this is an API request
+            is_api_request = request.content_type and 'json' in request.content_type.lower() or \
+                           request.accepted_renderer.format == 'json'
+            
             # For API requests, return JSON error response
-            if request.content_type and 'json' in request.content_type.lower():
+            if is_api_request:
                 return Response({'error': error_message}, status=status.HTTP_400_BAD_REQUEST)
             
             # For form submissions, show the login form with error
@@ -284,7 +299,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
     """ API endpoint for managing articles """
     queryset = Article.objects.all().order_by('-created_at')
     serializer_class = ArticleSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [permissions.AllowAny]
     
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -654,10 +669,18 @@ class CategoryViewSet(viewsets.ModelViewSet):
     """ API endpoint for managing categories """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]  # Allow public access to categories without authentication
     lookup_field = 'slug'
     
-    # All authenticated users can manage categories
+    # All users can view categories, but only authenticated users can manage them
+    def get_permissions(self):
+        # Allow anyone to list and retrieve
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [permissions.AllowAny]
+        # Require authentication for create, update, delete
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
 class CategoryListView(generics.ListAPIView):
     """ View for listing categories """

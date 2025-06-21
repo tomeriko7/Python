@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from rest_framework_simplejwt.views import TokenRefreshView
 
 router = DefaultRouter()
 router.register(r'profiles', views.UserProfileViewSet)
@@ -15,8 +16,11 @@ urlpatterns = [
     
     # Authentication
     path('api/auth/register/', views.RegisterView.as_view(), name='register'),
+    path('api/register/', views.RegisterView.as_view(), name='register_alt'),
     path('api/auth/login/', views.LoginView.as_view(), name='login'),
+    path('api/login/', views.LoginView.as_view(), name='login_alt'),
     path('api/auth/logout/', views.LogoutView.as_view(), name='logout'),
+    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # API URLs for debugging
     path('api/debug/validation-errors/', views.ValidationErrorsView.as_view(), name='validation_errors'),

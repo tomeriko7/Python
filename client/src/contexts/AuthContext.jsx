@@ -49,10 +49,29 @@ export const AuthProvider = ({ children }) => {
   // Handle axios errors
   axios.interceptors.response.use(
     (response) => response,
-    (error) => {
-      if (error.response?.status === 401) {
-        handleLogout();
+    async (error) => {
+      const originalRequest = error.config;
+      
+      // If the error is due to an expired token (401) and we haven't tried to refresh yet
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        try {
+          // Try to refresh the token
+          const newToken = await refreshAccessToken();
+          
+          // Update the request header with the new token
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          
+          // Retry the original request
+          return axios(originalRequest);
+        } catch (refreshError) {
+          // If refresh fails, logout the user
+          handleLogout();
+          return Promise.reject(refreshError);
+        }
       }
+      
       return Promise.reject(error);
     }
   );
@@ -67,6 +86,7 @@ export const AuthProvider = ({ children }) => {
 
   const handleLogout = () => {
     Cookies.remove("token", { path: "/" });
+    Cookies.remove("refreshToken", { path: "/" });
     setUser(null);
     setAuthHeader(null);
     setError(null);
@@ -75,7 +95,7 @@ export const AuthProvider = ({ children }) => {
   const clearError = () => setError(null);
 
   const handleAuthResponse = async (data) => {
-    const { token, user: userData } = data;
+    const { token, refresh, user: userData } = data;
 
     if (!token || !userData) {
       throw new Error("Invalid response from server");
@@ -89,7 +109,12 @@ export const AuthProvider = ({ children }) => {
         throw new Error("Token is expired or invalid");
       }
 
+      // Store both access and refresh tokens
       Cookies.set("token", token, COOKIE_OPTIONS);
+      if (refresh) {
+        Cookies.set("refreshToken", refresh, COOKIE_OPTIONS);
+      }
+      
       setUser(userData);
       setAuthHeader(token);
     } catch (error) {
@@ -98,14 +123,62 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const token = Cookies.get("token");
-        if (!token) {
-          setLoading(false);
-          return;
+  const refreshAccessToken = async () => {
+    try {
+      const refreshToken = Cookies.get("refreshToken");
+      if (!refreshToken) {
+        console.warn("No refresh token in cookies, checking localStorage as fallback");
+        // Check localStorage as fallback
+        const localRefreshToken = localStorage.getItem("refreshToken");
+        if (localRefreshToken) {
+          // If found in localStorage, move it to cookie for consistency
+          Cookies.set("refreshToken", localRefreshToken, COOKIE_OPTIONS);
+          console.log("Migrated refresh token from localStorage to cookies");
+        } else {
+          throw new Error("No refresh token available in any storage");
         }
+      }
+      
+      // Updated to try multiple possible refresh token endpoints
+      let data;
+      try {
+        // Try first endpoint
+        const response = await axios.post(`${API_URL}/auth/token/refresh/`, { refresh: refreshToken });
+        data = response.data;
+      } catch (err) {
+        console.log("First refresh endpoint failed, trying alternative");
+        // Try alternative endpoint
+        const response = await axios.post(`${API_URL}/token/refresh/`, { refresh: refreshToken });
+        data = response.data;
+      }
+      
+      if (!data || !data.access) throw new Error("Failed to refresh token - no access token in response");
+      
+      // Update access token
+      Cookies.set("token", data.access, COOKIE_OPTIONS);
+      setAuthHeader(data.access);
+      
+      // Log success for debugging
+      console.log("Token successfully refreshed");
+      return data.access;
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      // Don't immediately logout on first failure 
+      if (error.message === "No refresh token available in any storage") {
+        handleLogout();
+      }
+      throw error;
+    }
+  };
+
+  // עדכון לפונקציית אתחול האימות
+  const initializeAuth = async () => {
+    try {
+      const token = Cookies.get("token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
         try {
           // Check if token is valid by decoding it
@@ -128,7 +201,6 @@ export const AuthProvider = ({ children }) => {
             const response = await axios.get(`${API_URL}/profiles/${userId}/`);
             console.log("User profile response:", response.data);
 
-            // שילוב הנתונים מהטוקן והפרופיל
             const userData = {
               id: userId,
               username:
@@ -166,10 +238,12 @@ export const AuthProvider = ({ children }) => {
       } finally {
         setLoading(false);
       }
-    };
+  };
 
+  // שימוש בהוק useEffect להפעלת פונקציית האתחול בטעינת הקומפוננטה
+  useEffect(() => {
     initializeAuth();
-
+    
     return () => {
       setAuthHeader(null);
     };
@@ -179,20 +253,30 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       console.log("Attempting login with:", { email });
-
-      // Ensure proper headers are set
-      const { data } = await axios.post(
-        `${API_URL}/auth/login/`,
-        {
-          email,
-          password,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      
+      // Try both endpoints - first the auth/login then fallback to login if needed
+      let data;
+      
+      try {
+        // Try the first endpoint
+        const response1 = await axios.post(
+          `${API_URL}/auth/login/`,
+          { email, password },
+          { headers: { "Content-Type": "application/json" } }
+        );
+        data = response1.data;
+        console.log("Login successful with first endpoint");
+      } catch (firstError) {
+        console.log("First login endpoint failed, trying alternative endpoint");
+        // Try the alternative endpoint
+        const response2 = await axios.post(
+          `${API_URL}/login/`,
+          { email, password },
+          { headers: { "Content-Type": "application/json" } }
+        );
+        data = response2.data;
+        console.log("Login successful with alternative endpoint");
+      }
 
       console.log("Login response:", data);
       await handleAuthResponse(data);
@@ -239,26 +323,39 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setError(null);
-      const { data } = await axios.post(`${API_URL}/auth/register/`, userData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      await handleAuthResponse(data);
-      return data;
+      // Try both endpoints - first the auth/register then fallback to register if needed
+      let response;
+      
+      try {
+        response = await axios.post(`${API_URL}/auth/register/`, userData, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (firstError) {
+        console.log("First register attempt failed, trying alternative endpoint");
+        response = await axios.post(`${API_URL}/register/`, userData, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      }
+      
+      await handleAuthResponse(response.data);
+      return response.data;
     } catch (error) {
       console.error("Registration error details:", error.response?.data);
       console.error("Full error object:", error);
 
-      // Django Rest Framework שולח שגיאות בפורמט מורכב
+      // Handle complex error format from Django Rest Framework
       let errorMessage = "Registration failed";
 
       if (error.response?.data) {
-        // נסה לחלץ את הודעות השגיאה מהתגובה
+        // Try to extract error messages from the response
         const errorData = error.response.data;
 
         if (typeof errorData === "object") {
-          // אם יש שדות ספציפיים עם שגיאות
+          // If there are specific fields with errors
           const errorMessages = [];
 
           Object.keys(errorData).forEach((key) => {
@@ -349,6 +446,7 @@ export const AuthProvider = ({ children }) => {
     logout: handleLogout,
     updateProfile,
     clearError,
+    refreshAccessToken,
   };
 
   return (

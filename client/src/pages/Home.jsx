@@ -27,7 +27,7 @@ const Home = () => {
   
   // API URL
   // Use environment variable for API URL
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5173/api";
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,7 +58,8 @@ const Home = () => {
 
         // Fetch categories
         const categoriesResponse = await axios.get(`${API_URL}/categories/`);
-        setCategories(categoriesResponse.data);
+        // Ensure categories is always an array
+        setCategories(Array.isArray(categoriesResponse.data) ? categoriesResponse.data : []);
         
         setLoading(false);
       } catch (err) {
