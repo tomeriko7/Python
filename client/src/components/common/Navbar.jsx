@@ -54,12 +54,12 @@ const Navigation = () => {
       <Container>
         <Navbar.Brand as={Link} to="/">
           <img
-            src="/logo.svg"
+            src="logo.svg"
             alt="Blog Logo"
             height="30"
             className="d-inline-block align-top me-2"
           />
-          Blog App
+          Alpaca Blog App
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
